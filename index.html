@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PM Discovery OS</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #222222;
+      --border: #2e2e2e;
+      --accent: #6366f1;
+      --accent-dim: #4f46e5;
+      --text: #e8e8e8;
+      --text-dim: #888;
+      --text-muted: #555;
+      --success: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --tier1: #22c55e;
+      --tier2: #6366f1;
+      --elevated: #a855f7;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.6; }
+
+    .app { display: flex; flex-direction: column; height: 100vh; }
+
+    header { padding: 14px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    header h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+    header span.subtitle { color: var(--text-dim); font-size: 12px; }
+
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    .panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .panel-left { border-right: 1px solid var(--border); padding: 20px; gap: 16px; overflow-y: auto; }
+    .panel-right { padding: 20px; overflow-y: auto; }
+
+    label { display: block; font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+
+    textarea, input[type="text"], input[type="password"] { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 13px; padding: 10px 12px; outline: none; transition: border-color 0.15s; resize: vertical; }
+    textarea:focus, input:focus { border-color: var(--accent); }
+    textarea#signals { min-height: 200px; font-family: var(--mono); font-size: 12px; }
+
+    .collapsible-toggle { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; padding: 0; display: flex; align-items: center; gap: 6px; }
+    .collapsible-toggle:hover { color: var(--text); }
+    .collapsible-toggle .arrow { display: inline-block; transition: transform 0.15s; font-size: 10px; }
+    .collapsible-toggle.open .arrow { transform: rotate(90deg); }
+    .collapsible-body { display: none; margin-top: 10px; gap: 12px; flex-direction: column; }
+    .collapsible-body.open { display: flex; }
+    .field { display: flex; flex-direction: column; }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px; border-radius: var(--radius); border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: background 0.15s, opacity 0.15s; }
+    .btn-primary { background: var(--accent); color: #fff; width: 100%; }
+    .btn-primary:hover { background: var(--accent-dim); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .api-key-row { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; border-top: 1px solid var(--border); }
+    .api-key-status { font-size: 11px; color: var(--text-muted); }
+    .api-key-status.set { color: var(--success); }
+
+    /* ── Steps progress bar ── */
+    .steps-bar {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .step-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    .step-pill.pending { color: var(--text-muted); cursor: default; }
+    .step-pill.active  { color: var(--text); background: var(--surface2); cursor: default; }
+    .step-pill.done    { color: var(--text-dim); cursor: pointer; }
+    .step-pill.done:hover { background: var(--surface2); color: var(--text); }
+
+    .step-circle {
+      width: 18px; height: 18px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700; flex-shrink: 0;
+      background: var(--border); color: var(--text-muted);
+    }
+    .step-pill.active  .step-circle { background: var(--accent); color: #fff; }
+    .step-pill.done    .step-circle { background: var(--success); color: #fff; font-size: 10px; }
+
+    .step-connector { flex: 1; height: 1px; background: var(--border); min-width: 6px; max-width: 28px; }
+    .step-connector.done { background: rgba(34,197,94,0.4); }
+
+    /* ── Error banner ── */
+    .error-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: var(--radius); color: #fca5a5; padding: 10px 14px; font-size: 13px; margin-bottom: 16px; display: none; }
+    .error-banner.visible { display: block; }
+
+    /* ── Placeholder ── */
+    .placeholder { color: var(--text-muted); font-size: 13px; text-align: center; padding: 60px 20px; }
+    .placeholder-icon { font-size: 32px; margin-bottom: 12px; }
+
+    /* ── Step sections ── */
+    .step-section { display: none; }
+    .step-section.active { display: block; }
+
+    /* ── Section cards (collapsible) ── */
+    .section-card { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface2); cursor: pointer; user-select: none; }
+    .section-header:hover { background: #272727; }
+    .section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+    .section-arrow { color: var(--text-muted); font-size: 11px; transition: transform 0.15s; }
+    .section-card.open .section-arrow { transform: rotate(180deg); }
+    .section-body { display: none; padding: 14px; font-size: 13px; line-height: 1.7; color: var(--text); border-top: 1px solid var(--border); }
+    .section-card.open .section-body { display: block; }
+    .section-body h2, .section-body h3 { font-size: 13px; font-weight: 600; margin: 12px 0 6px 0; color: var(--text); }
+    .section-body p { margin-bottom: 10px; line-height: 1.7; }
+    .section-body ul, .section-body ol { padding-left: 20px; margin-bottom: 10px; }
+    .section-body li { margin-bottom: 4px; line-height: 1.6; }
+    .section-body strong { color: var(--text); font-weight: 600; }
+    .section-body em { color: var(--text-dim); font-style: italic; }
+    .section-body blockquote { border-left: 2px solid var(--accent-dim); padding-left: 12px; color: var(--text-dim); margin: 8px 0; font-style: italic; }
+    .section-body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+    .section-body code { background: var(--surface2); padding: 2px 6px; border-radius: 3px; font-family: var(--mono); font-size: 12px; }
+    .section-body table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+    .section-body th { background: var(--surface2); padding: 8px 12px; text-align: left; font-weight: 600; border: 1px solid var(--border); }
+    .section-body td { padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; }
+
+    /* ── Tier blocks (recommendation) ── */
+    .tier-block {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+
+    .tier-block-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .tier-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .tier-block.tier1 { border-color: rgba(34,197,94,0.25); }
+    .tier-block.tier1 .tier-block-header { background: rgba(34,197,94,0.06); color: var(--tier1); border-bottom: 1px solid rgba(34,197,94,0.15); }
+    .tier-block.tier1 .tier-dot { background: var(--tier1); }
+
+    .tier-block.tier2 { border-color: rgba(99,102,241,0.25); }
+    .tier-block.tier2 .tier-block-header { background: rgba(99,102,241,0.06); color: var(--tier2); border-bottom: 1px solid rgba(99,102,241,0.15); }
+    .tier-block.tier2 .tier-dot { background: var(--tier2); }
+
+    .tier-block.elevated { border-color: rgba(168,85,247,0.25); }
+    .tier-block.elevated .tier-block-header { background: rgba(168,85,247,0.06); color: var(--elevated); border-bottom: 1px solid rgba(168,85,247,0.15); }
+    .tier-block.elevated .tier-dot { background: var(--elevated); }
+
+    .tier-block-body { padding: 10px; }
+
+    /* ── Option cards (inside tier blocks) ── */
+    .option-card { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
+    .option-card:last-child { margin-bottom: 0; }
+
+    .option-card-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--surface2); cursor: pointer; user-select: none; }
+    .option-card-header:hover { background: #272727; }
+
+    .option-card-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; margin-right: 10px; }
+    .option-card-title { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+    .option-card-arrow { color: var(--text-muted); font-size: 11px; transition: transform 0.15s; flex-shrink: 0; }
+    .option-card.open .option-card-arrow { transform: rotate(180deg); }
+
+    .option-card-body { display: none; padding: 14px; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.7; color: var(--text); }
+    .option-card.open .option-card-body { display: block; }
+    .option-card-body p { margin-bottom: 8px; }
+    .option-card-body ul, .option-card-body ol { padding-left: 20px; margin-bottom: 8px; }
+    .option-card-body li { margin-bottom: 3px; }
+    .option-card-body strong { font-weight: 600; }
+    .option-card-body hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+    /* Rec preamble */
+    .rec-preamble { font-size: 13px; line-height: 1.7; color: var(--text); margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .rec-preamble p { margin-bottom: 8px; }
+    .rec-preamble strong { font-weight: 600; }
+
+    /* Option card structured field rows */
+    .opt-field-row { padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .opt-field-row:last-child { border-bottom: none; }
+    .opt-desc { font-size: 13px; line-height: 1.7; color: var(--text); padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 2px; }
+    .opt-desc p { margin-bottom: 6px; }
+    .opt-desc p:last-child { margin-bottom: 0; }
+    .opt-field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 3px; }
+    .opt-field-label.powers-label { color: #a78bfa; }
+    .opt-field-label.mechanic-label { color: #67e8f9; }
+    .opt-field-label.framework-label { color: #6ee7b7; }
+    .opt-field-value { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .opt-field-value p { margin-bottom: 4px; }
+    .opt-field-value p:last-child { margin-bottom: 0; }
+
+    /* Lean-toward / FAST VALIDATION block */
+    .lean-toward-block { margin-top: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; padding: 12px 14px; font-size: 13px; line-height: 1.7; color: var(--text-dim); }
+    .lean-toward-block p { margin-bottom: 6px; }
+    .lean-toward-block p:last-child { margin-bottom: 0; }
+    .lean-toward-block strong { font-weight: 600; color: var(--text); }
+    .lean-toward-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px; }
+
+    /* ── Hypothesis cards ── */
+    .hyp-group-header {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin: 0 0 10px 0;
+      padding: 0 2px;
+    }
+
+    .hyp-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .hyp-card:hover { border-color: #444; }
+    .hyp-card.selected { border-color: var(--accent); background: rgba(99,102,241,0.04); }
+
+    /* Frame-breaker variant */
+    .hyp-card.fb { border-color: rgba(245,158,11,0.3); }
+    .hyp-card.fb:hover { border-color: rgba(245,158,11,0.6); }
+    .hyp-card.fb.selected { border-color: var(--warn); background: rgba(245,158,11,0.04); }
+
+    .hyp-card-header { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; }
+    .hyp-checkbox { width: 16px; height: 16px; margin-top: 3px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+    .hyp-card.fb .hyp-checkbox { accent-color: var(--warn); }
+    .hyp-content { flex: 1; min-width: 0; }
+
+    .hyp-expand-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 0 2px; flex-shrink: 0; transition: transform 0.15s; align-self: flex-start; margin-top: 1px; }
+    .hyp-expand-btn:hover { color: var(--text); }
+
+    /* Expanded detail area */
+    .hyp-detail { border-top: 1px solid var(--border); padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 0; }
+
+    /* Field rows with distinct visual treatment per type */
+    .hyp-field { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .hyp-field:last-child { border-bottom: none; }
+    .hyp-field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 2px; }
+    .hyp-field-value { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .hyp-field-value p { margin: 0 0 4px 0; }
+    .hyp-field-value ul, .hyp-field-value ol { padding-left: 18px; margin: 0; }
+    .hyp-field-value li { margin-bottom: 2px; }
+
+    /* Specific field type styles */
+    .hyp-field.believe .hyp-field-value { font-size: 14px; font-weight: 500; color: var(--text); line-height: 1.5; }
+    .hyp-field.wrong-if .hyp-field-value { color: var(--text-dim); font-style: italic; }
+    .hyp-field.fastest-test .hyp-field-value { color: var(--accent); font-size: 12px; }
+
+    /* Badge row at the bottom of expanded card */
+    .hyp-badge-row { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 10px; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.04); }
+
+    .hyp-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+    .hyp-num { font-size: 11px; font-weight: 700; color: var(--text-dim); }
+
+    .badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .badge-tier1 { background: rgba(34,197,94,0.15); color: var(--tier1); }
+    .badge-tier2 { background: rgba(99,102,241,0.15); color: var(--tier2); }
+    .badge-fb { background: rgba(245,158,11,0.15); color: var(--warn); }
+    .badge-high { background: rgba(239,68,68,0.15); color: #fca5a5; }
+    .badge-medium { background: rgba(245,158,11,0.15); color: #fcd34d; }
+    .badge-low { background: rgba(34,197,94,0.15); color: #86efac; }
+    .badge-run-first { background: rgba(34,197,94,0.2); color: var(--tier1); }
+    .badge-deprioritize { background: rgba(107,114,128,0.15); color: var(--text-muted); }
+    .badge-validate { background: rgba(245,158,11,0.2); color: var(--warn); }
+
+    .hyp-claim { font-size: 13px; color: var(--text); cursor: pointer; line-height: 1.4; }
+
+    /* Frame-breaker collapsible group */
+    .fb-group { border: 1px solid rgba(245,158,11,0.25); border-radius: var(--radius); margin-top: 16px; overflow: hidden; }
+    .fb-group-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--warn); background: rgba(245,158,11,0.04); }
+    .fb-group-header:hover { background: rgba(245,158,11,0.08); }
+    .fb-group-arrow { font-size: 10px; transition: transform 0.15s; }
+    .fb-group.open .fb-group-arrow { transform: rotate(180deg); }
+    .fb-group-body { display: none; padding: 8px; border-top: 1px solid rgba(245,158,11,0.15); }
+    .fb-group.open .fb-group-body { display: block; }
+
+    /* ── Hypothesis action row ── */
+    .hyp-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .design-btn-row { display: none; }
+    .design-btn-row.visible { display: flex; gap: 8px; margin-top: 12px; }
+
+    /* ── Experiment cards ── */
+    .exp-card { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; }
+    .exp-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface2); cursor: pointer; }
+    .exp-header:hover { background: #272727; }
+    .exp-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .exp-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .exp-header-inner { flex: 1; }
+    .exp-arrow { color: var(--text-muted); font-size: 11px; transition: transform 0.15s; margin-left: 10px; }
+    .exp-card.open .exp-arrow { transform: rotate(180deg); }
+    .exp-body { display: none; padding: 14px; border-top: 1px solid var(--border); }
+    .exp-card.open .exp-body { display: block; }
+
+    /* Experiment card internals — flat, divider-only layout */
+    .exp-type-banner { margin-bottom: 0; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .exp-type-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 3px; }
+    .exp-type-value { font-size: 15px; font-weight: 700; color: var(--text); }
+
+    .exp-field-row { display: flex; flex-direction: column; gap: 3px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .exp-field-row:last-child { border-bottom: none; }
+    .exp-field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
+    .exp-field-label.success-label { color: var(--tier1); }
+    .exp-field-label.failure-label { color: #fca5a5; }
+    .exp-field-label.build-label { color: var(--accent); }
+    .exp-field-value { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .exp-field-value.build-value { font-weight: 500; }
+    .exp-field-value p { margin-bottom: 4px; }
+    .exp-field-value ul, .exp-field-value ol { padding-left: 18px; }
+    .exp-field-value li { margin-bottom: 2px; }
+    .exp-field-value strong { font-weight: 600; }
+
+    /* Time + cost: one inline line */
+    .exp-meta-inline { font-size: 12px; color: var(--text-dim); padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .exp-meta-sep { margin: 0 8px; color: var(--text-muted); opacity: 0.5; }
+
+    /* Alternatives: plain chevron toggle, no box */
+    .exp-alt-toggle { display: flex; align-items: center; gap: 6px; padding: 10px 0; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); border-bottom: 1px solid rgba(255,255,255,0.04); user-select: none; }
+    .exp-alt-toggle:hover { color: var(--text); }
+    .exp-alt-chevron { font-size: 9px; transition: transform 0.15s; }
+    .exp-alt-body { display: none; font-size: 12px; color: var(--text-dim); line-height: 1.6; padding: 8px 0 2px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .exp-alt-body.open { display: block; }
+    .exp-alt-body p { margin: 0 0 4px; }
+    .exp-alt-body { display: none; padding: 12px; font-size: 13px; color: var(--text); line-height: 1.6; border-top: 1px solid var(--border); }
+    .exp-alt-body p { margin-bottom: 4px; }
+    .exp-alt-card.open .exp-alt-body { display: block; }
+    /* ── Advance button ── */
+    .advance-row { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .advance-row-left { font-size: 12px; color: var(--text-muted); }
+    .btn-advance { background: var(--accent); color: #fff; padding: 9px 20px; border-radius: var(--radius); border: none; cursor: pointer; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s; flex-shrink: 0; }
+    .btn-advance:hover { background: var(--accent-dim); }
+    .btn-advance:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-advance .arrow-right { font-size: 12px; }
+
+    /* ── Loading spinner ── */
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>PM Discovery OS</h1>
+    <span class="subtitle">Signal analysis &amp; experiment design</span>
+  </header>
+
+  <div class="main">
+
+    <!-- ── LEFT PANEL ── -->
+    <div class="panel panel-left">
+
+      <div class="field">
+        <label for="signals">Signals</label>
+        <textarea id="signals" placeholder="Paste interview transcripts, app reviews, Reddit threads, or any unstructured user signal…"></textarea>
+      </div>
+
+      <div>
+        <button class="collapsible-toggle" id="context-toggle">
+          <span class="arrow">▶</span>
+          Optional context
+        </button>
+        <div class="collapsible-body" id="context-body">
+          <div class="field">
+            <label for="ctx-building">What are you building?</label>
+            <input type="text" id="ctx-building" placeholder="e.g. AI tutor for K-12 math" />
+          </div>
+          <div class="field">
+            <label for="ctx-metric">North star metric</label>
+            <input type="text" id="ctx-metric" placeholder="e.g. weekly active learners" />
+          </div>
+          <div class="field">
+            <label for="ctx-constraints">Constraints</label>
+            <input type="text" id="ctx-constraints" placeholder="e.g. solo founder, under $500 budget" />
+          </div>
+        </div>
+      </div>
+
+      <div class="api-key-row">
+        <label for="api-key">Anthropic API key</label>
+        <input type="password" id="api-key" placeholder="sk-ant-…" autocomplete="off" />
+        <span class="api-key-status" id="api-key-status">Not set — stored in browser only, never sent to server</span>
+      </div>
+
+      <button class="btn btn-primary" id="analyze-btn">Analyze signals</button>
+
+    </div>
+
+    <!-- ── RIGHT PANEL ── -->
+    <div class="panel panel-right">
+
+      <!-- Steps progress bar -->
+      <div class="steps-bar" id="steps-bar">
+        <div class="step-pill pending" id="sp-1" data-step="1">
+          <div class="step-circle">1</div>
+          <span>Signals</span>
+        </div>
+        <div class="step-connector" id="sc-1"></div>
+        <div class="step-pill pending" id="sp-2" data-step="2">
+          <div class="step-circle">2</div>
+          <span>Recommendation</span>
+        </div>
+        <div class="step-connector" id="sc-2"></div>
+        <div class="step-pill pending" id="sp-3" data-step="3">
+          <div class="step-circle">3</div>
+          <span>Steel Man</span>
+        </div>
+        <div class="step-connector" id="sc-3"></div>
+        <div class="step-pill pending" id="sp-4" data-step="4">
+          <div class="step-circle">4</div>
+          <span>Hypotheses</span>
+        </div>
+        <div class="step-connector" id="sc-4"></div>
+        <div class="step-pill pending" id="sp-5" data-step="5">
+          <div class="step-circle">5</div>
+          <span>Experiments</span>
+        </div>
+      </div>
+
+      <!-- Error banner -->
+      <div class="error-banner" id="error-banner"></div>
+
+      <!-- Placeholder -->
+      <div id="placeholder">
+        <div class="placeholder">
+          <div class="placeholder-icon">⬡</div>
+          <div>Paste signals and click Analyze to begin</div>
+        </div>
+      </div>
+
+      <!-- Step content areas (populated dynamically) -->
+      <div id="step-1" class="step-section"></div>
+      <div id="step-2" class="step-section"></div>
+      <div id="step-3" class="step-section"></div>
+      <div id="step-4" class="step-section"></div>
+      <div id="step-5" class="step-section"></div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let stage1Output    = "";
+let parsedSections  = [];   // [{title, content}] from parseStage1
+let parsedHypotheses = [];  // parsed hypothesis objects
+let currentStep     = 0;
+let maxRenderedStep = 0;
+
+// ═══════════════════════════════════════════
+// API KEY
+// ═══════════════════════════════════════════
+const apiKeyInput  = document.getElementById("api-key");
+const apiKeyStatus = document.getElementById("api-key-status");
+
+function loadApiKey() {
+  const stored = localStorage.getItem("pm_api_key") || "";
+  apiKeyInput.value = stored;
+  updateApiKeyStatus(stored);
+}
+function updateApiKeyStatus(val) {
+  if (val && val.trim()) {
+    apiKeyStatus.textContent = "Key saved in browser";
+    apiKeyStatus.className = "api-key-status set";
+  } else {
+    apiKeyStatus.textContent = "Not set — stored in browser only, never sent to server";
+    apiKeyStatus.className = "api-key-status";
+  }
+}
+apiKeyInput.addEventListener("input", () => {
+  const val = apiKeyInput.value.trim();
+  localStorage.setItem("pm_api_key", val);
+  updateApiKeyStatus(val);
+});
+loadApiKey();
+
+document.getElementById("context-toggle").addEventListener("click", function() {
+  this.classList.toggle("open");
+  document.getElementById("context-body").classList.toggle("open");
+});
+
+// ═══════════════════════════════════════════
+// ERROR BANNER
+// ═══════════════════════════════════════════
+function showError(msg) { const el = document.getElementById("error-banner"); el.textContent = msg; el.classList.add("visible"); }
+function clearError()   { document.getElementById("error-banner").classList.remove("visible"); }
+
+// ═══════════════════════════════════════════
+// STEPS BAR
+// ═══════════════════════════════════════════
+const STEP_LABELS = ["", "Signals", "Recommendation", "Steel Man", "Hypotheses", "Experiments"];
+
+function updateStepsBar(active, max) {
+  for (let i = 1; i <= 5; i++) {
+    const pill = document.getElementById(`sp-${i}`);
+    const conn = document.getElementById(`sc-${i}`);
+    pill.className = "step-pill " + (i < active ? "done" : i === active ? "active" : "pending");
+    const circle = pill.querySelector(".step-circle");
+    circle.textContent = i < active ? "✓" : String(i);
+    if (conn) conn.className = "step-connector" + (i < active ? " done" : "");
+  }
+}
+
+// Wire up click-back on done steps
+document.querySelectorAll(".step-pill").forEach(pill => {
+  pill.addEventListener("click", () => {
+    const n = parseInt(pill.dataset.step);
+    if (n < currentStep) goToStep(n);
+  });
+});
+
+function goToStep(n) {
+  if (n > maxRenderedStep || n < 1) return;
+  currentStep = n;
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById(`step-${i}`).classList.toggle("active", i === n);
+  }
+  updateStepsBar(n, maxRenderedStep);
+}
+
+function activateStep(n) {
+  document.getElementById("placeholder").style.display = "none";
+  maxRenderedStep = Math.max(maxRenderedStep, n);
+  currentStep = n;
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById(`step-${i}`).classList.toggle("active", i === n);
+  }
+  updateStepsBar(n, maxRenderedStep);
+}
+
+// ═══════════════════════════════════════════
+// SHARED HELPERS
+// ═══════════════════════════════════════════
+function escHtml(str) {
+  if (!str) return "";
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function makeSection(title, content, openByDefault = false) {
+  const card = document.createElement("div");
+  card.className = "section-card" + (openByDefault ? " open" : "");
+  const body = document.createElement("div");
+  body.className = "section-body";
+  body.innerHTML = marked.parse(content.trim());
+  card.innerHTML = `<div class="section-header"><span class="section-title">${escHtml(title)}</span><span class="section-arrow">▾</span></div>`;
+  card.appendChild(body);
+  card.querySelector(".section-header").addEventListener("click", () => card.classList.toggle("open"));
+  return card;
+}
+
+function makeAdvanceBtn(label, handler, note = "") {
+  const row = document.createElement("div");
+  row.className = "advance-row";
+  if (note) {
+    const left = document.createElement("div");
+    left.className = "advance-row-left";
+    left.textContent = note;
+    row.appendChild(left);
+  } else {
+    row.style.justifyContent = "flex-end";
+  }
+  const btn = document.createElement("button");
+  btn.className = "btn-advance";
+  btn.innerHTML = `${escHtml(label)} <span class="arrow-right">→</span>`;
+  btn.addEventListener("click", handler);
+  row.appendChild(btn);
+  return row;
+}
+
+function sectionByTitle(title) {
+  return parsedSections.find(s => s.title === title);
+}
+
+// ═══════════════════════════════════════════
+// PARSE STAGE 1 → SECTIONS
+// ═══════════════════════════════════════════
+function parseStage1(text) {
+  const ANCHORS = [
+    { title: "Signals Found",   patterns: [/##\s*SIGNALS\b/i, /\bSIGNALS FOUND\b/i] },
+    { title: "Bias Flags",      patterns: [/##\s*BIAS\b/i, /\bBIAS FLAGS\b/i] },
+    { title: "Recommendation",  patterns: [/##\s*RECOMMENDATION\b/i, /\bRECOMMENDATION\b/i, /\bThe decision to make\b/i] },
+    { title: "Steel Man",       patterns: [/##\s*STEEL MAN\b/i, /\bSTEEL MAN\b/i, /\bThis recommendation fails\b/i] },
+    { title: "Rubric Score",    patterns: [/##\s*RUBRIC\b/i, /\bRUBRIC SCORE\b/i, /\bDimension\b.*\bScore\b/i] },
+    { title: "Hypotheses",      patterns: [/##\s*HYPOTHESES\b/i, /\bHYPOTHESES\b/i] },
+  ];
+  const hits = ANCHORS.map(anchor => {
+    let earliest = null;
+    for (const pat of anchor.patterns) {
+      const m = pat.exec(text);
+      if (m && (earliest === null || m.index < earliest.index)) {
+        earliest = { index: m.index, matchEnd: m.index + m[0].length };
+      }
+    }
+    if (!earliest) return null;
+    return { title: anchor.title, index: earliest.index, matchEnd: earliest.matchEnd };
+  }).filter(Boolean);
+  hits.sort((a, b) => a.index - b.index);
+  if (hits.length === 0) return [{ title: "Output", content: text }];
+  const sections = [];
+  for (let i = 0; i < hits.length; i++) {
+    const contentStart = hits[i].matchEnd;
+    const contentEnd = i + 1 < hits.length ? hits[i + 1].index : text.length;
+    const content = text.slice(contentStart, contentEnd).replace(/^\s*[：:]\s*/, "").trim();
+    if (content.length >= 50) sections.push({ title: hits[i].title, content });
+  }
+  return sections.length > 0 ? sections : [{ title: "Output", content: text }];
+}
+
+// ═══════════════════════════════════════════
+// PARSE RECOMMENDATION → OPTION BLOCKS + TIERS
+// ═══════════════════════════════════════════
+function parseRecommendationOptions(content) {
+  // Match **Option A**, Option A:, **Option A —**, etc.
+  const optPat = /(?:^|\n)(?:\*\*)?Option\s+([A-Z])(?:\*\*)?\s*(?:[—–-]|[:：]|\s+)/gm;
+  const hits = [];
+  let m;
+  while ((m = optPat.exec(content)) !== null) {
+    hits.push({ letter: m[1].toUpperCase(), index: m.index, matchEnd: m.index + m[0].length });
+  }
+  if (hits.length === 0) return null;
+
+  const preamble = content.slice(0, hits[0].index).trim();
+  const options = hits.map((hit, i) => {
+    const end = i + 1 < hits.length ? hits[i + 1].index : content.length;
+    const body = content.slice(hit.matchEnd, end).trim();
+    // Extract title: first non-empty line that isn't a tier label or elevated marker
+    const firstLine = body.split("\n").find(l => {
+      const t = l.trim();
+      return t && !/^TIER\s+[12]/i.test(t) && !/^ELEVATED FROM STEEL MAN/i.test(t) && !/^ALTERNATIVE RECOMMENDATION/i.test(t);
+    }) || "";
+    const title = firstLine.replace(/\*\*/g, "").replace(/^Option\s+[A-Z]\s*[:—–-]?\s*/i, "").replace(/^[—–-]\s*/, "").trim();
+    // Classify tier
+    const isElevated = /ELEVATED|ALTERNATIVE RECOMMENDATION|elevated.*steel\s*man|from.*steel\s*man/i.test(body);
+    const isTier2 = !isElevated && /\bTIER\s*2\b|requires.*lifting|beyond.*constraint|requires.*constraint/i.test(body);
+    return { letter: hit.letter, title, body, tier: isElevated ? "elevated" : isTier2 ? "tier2" : "tier1" };
+  });
+
+  // Extract lean-toward / FAST VALIDATION from the last option's body — they appear after
+  // all option content with no new Option header, so the parser lumps them into the last body.
+  let leanToward = "";
+  if (options.length > 0) {
+    const last = options[options.length - 1];
+    const idx = last.body.search(/\n(?=\*{0,2}(?:Lean toward|FAST VALIDATION FIRST)\b)/i);
+    if (idx > 0) {
+      leanToward = last.body.slice(idx).trim();
+      last.body = last.body.slice(0, idx).trim();
+    }
+  }
+
+  return { preamble, options, leanToward };
+}
+
+// Parse structured fields out of an option body.
+// Returns { description, fields } where description is the prose before any known label,
+// and fields is [{label, value}] in document order.
+function parseOptionBody(body) {
+  const FIELD_LABELS = [
+    "Why the evidence supports it",
+    "What this unlocks",
+    "7 POWERS",
+    "BEHAVIORAL MECHANIC",
+    "FRAMEWORK NOTE",
+    "What to build",
+    "Risk",
+  ];
+  const hits = [];
+  for (const label of FIELD_LABELS) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pat = new RegExp(`^\\*{0,2}${escaped}\\*{0,2}\\s*[:：]\\*{0,2}\\s*`, "im");
+    const fm = pat.exec(body);
+    if (fm) hits.push({ label, index: fm.index, matchEnd: fm.index + fm[0].length });
+  }
+  hits.sort((a, b) => a.index - b.index);
+
+  const fields = hits.map((hit, i) => {
+    const start = hit.matchEnd;
+    const end = i + 1 < hits.length ? hits[i + 1].index : body.length;
+    const value = body.slice(start, end).trim();
+    return value ? { label: hit.label, value } : null;
+  }).filter(Boolean);
+
+  const description = hits.length > 0 ? body.slice(0, hits[0].index).trim() : body.trim();
+  return { description, fields };
+}
+
+function buildOptionCard(letter, title, body, open = true) {
+  const card = document.createElement("div");
+  card.className = "option-card" + (open ? " open" : "");
+  const displayTitle = title || `Option ${letter}`;
+
+  // Strip elevation marker lines (used for tier detection, not display)
+  const cleanBody = body
+    .replace(/^\*{0,2}ELEVATED FROM\b[^\n]*\n?/gim, "")
+    .replace(/^\*{0,2}ALTERNATIVE RECOMMENDATION\b[^\n]*\n?/gim, "")
+    .replace(/\n---+\s*$/g, "")
+    .trim();
+
+  card.innerHTML = `
+    <div class="option-card-header">
+      <span class="option-card-label">Option ${escHtml(letter)}</span>
+      <span class="option-card-title">${escHtml(displayTitle)}</span>
+      <span class="option-card-arrow">▾</span>
+    </div>
+    <div class="option-card-body"></div>
+  `;
+
+  const cardBody = card.querySelector(".option-card-body");
+  const { description, fields } = parseOptionBody(cleanBody);
+
+  // Description prose (what to do, main argument)
+  if (description) {
+    const desc = document.createElement("div");
+    desc.className = "opt-desc";
+    desc.innerHTML = marked.parse(description);
+    cardBody.appendChild(desc);
+  }
+
+  // Structured field rows
+  const labelClass = {
+    "7 POWERS": "powers-label",
+    "BEHAVIORAL MECHANIC": "mechanic-label",
+    "FRAMEWORK NOTE": "framework-label",
+  };
+  fields.forEach(({ label, value }) => {
+    const row = document.createElement("div");
+    row.className = "opt-field-row";
+    const cls = labelClass[label] || "";
+    row.innerHTML = `<div class="opt-field-label${cls ? " " + cls : ""}">${escHtml(label)}</div>`;
+    const val = document.createElement("div");
+    val.className = "opt-field-value";
+    val.innerHTML = marked.parse(value);
+    row.appendChild(val);
+    cardBody.appendChild(row);
+  });
+
+  // Fallback: no fields found, render as raw markdown
+  if (!description && fields.length === 0) {
+    cardBody.innerHTML = marked.parse(cleanBody);
+  }
+
+  card.querySelector(".option-card-header").addEventListener("click", () => card.classList.toggle("open"));
+  return card;
+}
+
+function buildTierBlocks(parsed) {
+  const frag = document.createDocumentFragment();
+
+  if (parsed.preamble) {
+    const pre = document.createElement("div");
+    pre.className = "rec-preamble";
+    pre.innerHTML = marked.parse(parsed.preamble);
+    frag.appendChild(pre);
+  }
+
+  const tier1opts    = parsed.options.filter(o => o.tier === "tier1");
+  const tier2opts    = parsed.options.filter(o => o.tier === "tier2");
+  const elevatedOpts = parsed.options.filter(o => o.tier === "elevated");
+
+  if (tier1opts.length > 0) {
+    const block = document.createElement("div");
+    block.className = "tier-block tier1";
+    block.innerHTML = `<div class="tier-block-header"><div class="tier-dot"></div>Executable now</div><div class="tier-block-body"></div>`;
+    const body = block.querySelector(".tier-block-body");
+    tier1opts.forEach(o => body.appendChild(buildOptionCard(o.letter, o.title, o.body, true)));
+    frag.appendChild(block);
+  }
+
+  if (tier2opts.length > 0) {
+    const block = document.createElement("div");
+    block.className = "tier-block tier2";
+    block.innerHTML = `<div class="tier-block-header"><div class="tier-dot"></div>Beyond your current constraints</div><div class="tier-block-body"></div>`;
+    const body = block.querySelector(".tier-block-body");
+    tier2opts.forEach(o => body.appendChild(buildOptionCard(o.letter, o.title, o.body, false)));
+    frag.appendChild(block);
+  }
+
+  if (elevatedOpts.length > 0) {
+    const block = document.createElement("div");
+    block.className = "tier-block elevated";
+    block.innerHTML = `<div class="tier-block-header"><div class="tier-dot"></div>Alternative worth considering</div><div class="tier-block-body"></div>`;
+    const body = block.querySelector(".tier-block-body");
+    elevatedOpts.forEach(o => body.appendChild(buildOptionCard(o.letter, o.title, o.body, false)));
+    frag.appendChild(block);
+  }
+
+  // Lean-toward / FAST VALIDATION block — rendered below all option tiers
+  if (parsed.leanToward) {
+    const lt = document.createElement("div");
+    lt.className = "lean-toward-block";
+    const lbl = document.createElement("div");
+    lbl.className = "lean-toward-label";
+    lbl.textContent = "Lean-toward conditions";
+    lt.appendChild(lbl);
+    const content = document.createElement("div");
+    content.innerHTML = marked.parse(parsed.leanToward);
+    lt.appendChild(content);
+    frag.appendChild(lt);
+  }
+
+  return frag;
+}
+
+// ═══════════════════════════════════════════
+// PARSE HYPOTHESES
+// ═══════════════════════════════════════════
+function parseHypotheses(text) {
+  const headerPat = /(?:^|\n)((?:#{1,4}\s*)?(?:HYPOTHESIS\s+\[?([A-Za-z0-9]+)\]?|FRAME-BREAKER\s+\[?([0-9]+)\]?))/gi;
+  const headerHits = [];
+  let m;
+  while ((m = headerPat.exec(text)) !== null) {
+    const isFrameBreaker = m[3] !== undefined;
+    const id = isFrameBreaker ? ("FB" + m[3]) : (m[2] || "?");
+    const blockStart = m.index + (text[m.index] === "\n" ? 1 : 0);
+    headerHits.push({ id, isFrameBreaker, blockStart });
+  }
+  if (headerHits.length === 0) return [];
+
+  const blocks = headerHits.map((hit, i) => {
+    const end = i + 1 < headerHits.length ? headerHits[i + 1].blockStart : text.length;
+    return { id: hit.id, isFrameBreaker: hit.isFrameBreaker, raw: text.slice(hit.blockStart, end).trim() };
+  });
+
+  function makeExtractor(raw, fieldNames) {
+    const hits = [];
+    for (const label of fieldNames) {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pat = new RegExp(`^\\*{0,2}${escaped}\\*{0,2}\\s*[:：]\\*{0,2}\\s*`, "im");
+      const fm = pat.exec(raw);
+      if (fm) hits.push({ label, index: fm.index, matchEnd: fm.index + fm[0].length });
+    }
+    hits.sort((a, b) => a.index - b.index);
+    return function valueOf(label) {
+      const hit = hits.find(h => h.label === label);
+      if (!hit) return "";
+      const next = hits.find(h => h.index > hit.index);
+      return raw.slice(hit.matchEnd, next ? next.index : raw.length).trim();
+    };
+  }
+
+  function extractLevel(val) {
+    if (!val) return null;
+    const m = val.match(/\b(HIGH|MEDIUM|LOW)\b/i);
+    return m ? m[1].toUpperCase() : null;
+  }
+
+  function extractPriority(val) {
+    if (!val) return null;
+    const m = val.match(/\b(RUN FIRST|RUN SECOND|RUN THIRD|DEPRIORITIZE|VALIDATE BEFORE COMMITTING|LOW PRIOR)\b/i);
+    return m ? m[1].toUpperCase() : null;
+  }
+
+  const parsed = blocks.map(({ id, isFrameBreaker, raw }) => {
+    if (isFrameBreaker) {
+      const valueOf = makeExtractor(raw, ["What if", "Why this might be true", "What it would mean", "Test", "Scoring"]);
+      const whatIf = valueOf("What if");
+      if (!whatIf) return null;
+      const scoringText = valueOf("Scoring") + " " + raw;
+      const scoringLabel = /VALIDATE BEFORE COMMITTING/i.test(scoringText) ? "VALIDATE BEFORE COMMITTING" : /LOW PRIOR/i.test(scoringText) ? "LOW PRIOR" : null;
+      const titleMatch = raw.match(/FRAME-BREAKER\s+\[?[0-9]+\]?\s*[:：]?\s*(.+)/i);
+      const title = titleMatch ? titleMatch[1].trim() : `Frame-Breaker ${id.replace("FB", "")}`;
+      return { id, isFrameBreaker: true, title, believe: whatIf, believeShort: whatIf.split(/[.!?]/)[0].trim(), because: valueOf("Why this might be true"), addresses: valueOf("What it would mean"), wrongIf: valueOf("Test"), risk: null, leverage: null, priority: scoringLabel, tier: null };
+    }
+
+    const newV = makeExtractor(raw, ["Core belief", "If we're wrong", "Leverage", "Risk", "Priority", "Fastest test"]);
+    const oldV = makeExtractor(raw, ["We believe", "Because", "This addresses", "We'd be wrong if", "Risk level", "Leverage level", "Priority flag", "Priority reasoning", "Speed to signal"]);
+    const believe = newV("Core belief") || oldV("We believe");
+    if (!believe) return null;
+    const titleMatch = raw.match(/HYPOTHESIS\s+\[?[A-Za-z0-9]+\]?\s*[:：]\s*(.+)/i) || raw.match(/\*{0,2}Testing\*{0,2}\s*[:：]\s*(.+)/i);
+    const title = titleMatch ? titleMatch[1].trim() : null;
+    const tierMatch = raw.match(/\[(TIER [12][^\]]*)\]/i);
+    return {
+      id, isFrameBreaker: false, title,
+      believe, believeShort: believe.split(/[.!?]/)[0].trim(),
+      because: oldV("Because"),
+      fastestTest: newV("Fastest test"),
+      addresses: oldV("This addresses"),
+      wrongIf: newV("If we're wrong") || oldV("We'd be wrong if"),
+      risk: extractLevel(newV("Risk") || oldV("Risk level")),
+      leverage: extractLevel(newV("Leverage") || oldV("Leverage level")),
+      priority: extractPriority(newV("Priority") || oldV("Priority flag")),
+      tier: tierMatch ? tierMatch[1] : null,
+    };
+  }).filter(h => h !== null);
+
+  // DO NOT REMOVE - prevents duplicate cards
+  const seenIds = new Set();
+  return parsed.filter(h => {
+    if (seenIds.has(h.id)) return false;
+    seenIds.add(h.id);
+    return true;
+  });
+}
+
+// ═══════════════════════════════════════════
+// BADGE HELPERS
+// ═══════════════════════════════════════════
+function riskBadgeClass(r) {
+  if (r === "HIGH") return "badge badge-high";
+  if (r === "MEDIUM") return "badge badge-medium";
+  return "badge badge-low";
+}
+function priorityBadgeClass(p) {
+  if (!p) return "badge badge-medium";
+  if (p === "RUN FIRST") return "badge badge-run-first";
+  if (p === "DEPRIORITIZE") return "badge badge-deprioritize";
+  if (p === "VALIDATE BEFORE COMMITTING") return "badge badge-validate";
+  return "badge badge-medium";
+}
+
+// Strip markdown syntax — ** * ## — leaving plain text only
+function stripMd(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/\*{1,3}/g, "")
+    .replace(/#{1,6}\s*/g, "")
+    .replace(/^\s*[-–—]\s*/gm, "")  // leading dashes (list markers)
+    .trim();
+}
+
+// ═══════════════════════════════════════════
+// HYPOTHESIS CARD BUILDER (single card)
+// ═══════════════════════════════════════════
+function buildHypCard(hyp) {
+  // ── Validity guard: skip empty / malformed cards ──
+  const validId = hyp.id && hyp.id !== "?" && hyp.id !== "undefined";
+  const validBelieve = hyp.believe && hyp.believe.trim().length > 0;
+  const otherFields = [hyp.wrongIf, hyp.because, hyp.addresses, hyp.risk, hyp.leverage, hyp.priority];
+  const hasOtherContent = otherFields.some(f => f && String(f).trim().length > 0);
+  if (!validId || !validBelieve || !hasOtherContent) return null;
+
+  const card = document.createElement("div");
+  card.className = "hyp-card" + (hyp.isFrameBreaker ? " fb" : "");
+  card.dataset.id  = hyp.id;
+  card.dataset.num = hyp.id;
+  card.dataset.risk = hyp.risk || "";
+
+  // ── Collapsed header ──
+  const idLabel = hyp.isFrameBreaker ? `FB${hyp.id.replace("FB","")}` : `H[${hyp.id}]`;
+  const rawTitle = stripMd(hyp.title || hyp.believe || "");
+  const titleWords = rawTitle.split(/\s+/).filter(Boolean);
+  const titleDisplay = titleWords.length > 8 ? titleWords.slice(0, 8).join(" ") + "…" : rawTitle;
+
+  const collapsedBadges = hyp.isFrameBreaker
+    ? [hyp.priority ? `<span class="${priorityBadgeClass(hyp.priority)}">${escHtml(hyp.priority)}</span>` : ""]
+    : [
+        hyp.risk     ? `<span class="${riskBadgeClass(hyp.risk)}">${hyp.risk} risk</span>` : "",
+        hyp.priority ? `<span class="${priorityBadgeClass(hyp.priority)}">${escHtml(hyp.priority)}</span>` : "",
+      ];
+
+  // ── Expanded detail ──
+  const detail = document.createElement("div");
+  detail.className = "hyp-detail";
+  detail.style.display = "none";
+
+  function addField(cssClass, labelText, value, renderHtml = false) {
+    if (!value || !String(value).trim()) return;
+    const row = document.createElement("div");
+    row.className = `hyp-field ${cssClass}`;
+    const lbl = document.createElement("div");
+    lbl.className = "hyp-field-label";
+    lbl.textContent = labelText;
+    const val = document.createElement("div");
+    val.className = "hyp-field-value";
+    if (renderHtml) {
+      val.innerHTML = marked.parse(String(value));
+    } else {
+      val.textContent = stripMd(value);
+    }
+    row.appendChild(lbl);
+    row.appendChild(val);
+    detail.appendChild(row);
+  }
+
+  if (hyp.isFrameBreaker) {
+    addField("believe",      "What if",               hyp.believe);
+    addField("because",      "Why this might be true", hyp.because, true);
+    addField("wrong-if",     "What it would mean",    hyp.addresses, true);
+    addField("fastest-test", "Test",                  hyp.wrongIf);
+  } else {
+    addField("believe",      "Core belief",      hyp.believe);
+    addField("because",      "Because",          hyp.because, true);
+    addField("wrong-if",     "We'd be wrong if", hyp.wrongIf);
+    addField("fastest-test", "Fastest test",     hyp.fastestTest);
+  }
+
+  // Badge row at bottom of expanded card
+  const badgeRow = document.createElement("div");
+  badgeRow.className = "hyp-badge-row";
+  const expandedBadges = hyp.isFrameBreaker
+    ? [hyp.priority ? `<span class="${priorityBadgeClass(hyp.priority)}">${escHtml(hyp.priority)}</span>` : ""]
+    : [
+        hyp.risk     ? `<span class="${riskBadgeClass(hyp.risk)}">${hyp.risk} risk</span>` : "",
+        hyp.leverage ? `<span class="${riskBadgeClass(hyp.leverage)}">${hyp.leverage} leverage</span>` : "",
+        hyp.priority ? `<span class="${priorityBadgeClass(hyp.priority)}">${escHtml(hyp.priority)}</span>` : "",
+      ];
+  badgeRow.innerHTML = expandedBadges.join("");
+  if (badgeRow.innerHTML.trim()) detail.appendChild(badgeRow);
+
+  // ── Assemble card ──
+  card.innerHTML = `
+    <div class="hyp-card-header">
+      <input type="checkbox" class="hyp-checkbox" data-num="${escHtml(hyp.id)}" />
+      <div class="hyp-content">
+        <div class="hyp-meta">
+          <span class="hyp-num">${idLabel}</span>
+          ${hyp.isFrameBreaker ? `<span class="badge badge-fb">Frame-Breaker</span>` : ""}
+          ${collapsedBadges.join("")}
+        </div>
+        <div class="hyp-claim">${escHtml(titleDisplay)}</div>
+      </div>
+      <button class="hyp-expand-btn" title="Expand">▾</button>
+    </div>
+  `;
+  card.appendChild(detail);
+
+  const cb = card.querySelector(".hyp-checkbox");
+  cb.addEventListener("change", () => {
+    card.classList.toggle("selected", cb.checked);
+    updateDesignBtnVisibility();
+  });
+
+  const expandBtn = card.querySelector(".hyp-expand-btn");
+  function toggleExpand(e) {
+    if (e.target === cb) return;
+    const open = detail.style.display !== "none";
+    detail.style.display = open ? "none" : "block";
+    expandBtn.style.transform = open ? "" : "rotate(180deg)";
+  }
+  expandBtn.addEventListener("click", toggleExpand);
+  card.querySelector(".hyp-claim").addEventListener("click", toggleExpand);
+
+  return card;
+}
+
+function updateDesignBtnVisibility() {
+  const anyChecked = document.querySelectorAll(".hyp-card .hyp-checkbox:checked").length > 0;
+  const row = document.getElementById("design-btn-row");
+  if (row) row.className = "design-btn-row" + (anyChecked ? " visible" : "");
+}
+
+// ═══════════════════════════════════════════
+// EXPERIMENT PARSING + CARD BUILDER
+// ═══════════════════════════════════════════
+function parseExperiments(text) {
+  // Split on "EXPERIMENT FOR HYPOTHESIS X" or "EXPERIMENT FOR FRAME-BREAKER N"
+  const splitPat = /(?=EXPERIMENT FOR (?:HYPOTHESIS\s+\[?[A-Za-z0-9]+\]?|FRAME-BREAKER\s+\[?\d+\]?)|^# Experiment\b)/im;
+  let blocks = text.split(splitPat).filter(b => b.trim());
+  if (blocks.length <= 1) {
+    blocks = text.split(/(?=^#+\s*Experiment\b)/im).filter(b => b.trim());
+  }
+  return blocks.map(block => {
+    // Check frame-breaker FIRST — "EXPERIMENT FOR FRAME-BREAKER N"
+    // Must come before hypMatch because the model sometimes writes
+    // "EXPERIMENT FOR HYPOTHESIS FRAME-BREAKER N" and [A-Za-z0-9]+ would
+    // grab "FRAME" as the ID if hypMatch runs first.
+    const fbMatch  = block.match(/EXPERIMENT FOR (?:HYPOTHESIS\s+)?FRAME-BREAKER\s+\[?(\d+)\]?/i);
+    const hypMatch = !fbMatch && block.match(/EXPERIMENT FOR HYPOTHESIS\s+\[?([A-Za-z0-9]+)\]?/i);
+    let num;
+    if (fbMatch)       num = "FB" + fbMatch[1];
+    else if (hypMatch) num = hypMatch[1].toUpperCase();
+    else               num = null;
+    return { num, raw: block };
+  // Drop blocks with no recognised ID (preamble text, trailing notes)
+  }).filter(b => b.num !== null);
+}
+
+function parseExpFields(raw) {
+  const FIELD_LABELS = ["Recommended type","Why this type","Specifically","With","Success looks like","Failure looks like","Time to run","Cost if wrong","ALTERNATIVES","ONLY BUILD IF"];
+  const hits = [];
+  for (const label of FIELD_LABELS) {
+    // Consume optional bold markers before AND after the colon: **Label:** or **Label**:
+    const pat = new RegExp(`^\\*{0,2}${label}\\*{0,2}\\s*[:：]\\*{0,2}\\s*`, "im");
+    const m = pat.exec(raw);
+    if (m) hits.push({ label, index: m.index, matchLen: m[0].length });
+  }
+  hits.sort((a, b) => a.index - b.index);
+  if (hits.length === 0) return [{ label: null, value: raw }];
+  const fields = [];
+  for (let i = 0; i < hits.length; i++) {
+    const start = hits[i].index + hits[i].matchLen;
+    const end = i + 1 < hits.length ? hits[i + 1].index : raw.length;
+    const value = raw.slice(start, end).trim();
+    if (value) fields.push({ label: hits[i].label, value });
+  }
+  const preamble = raw.slice(0, hits[0].index).trim();
+  if (preamble) fields.unshift({ label: null, value: preamble });
+  return fields;
+}
+
+function buildExpCard(exp) {
+  const hyp = parsedHypotheses.find(h => h.id === exp.num);
+  const isFB = exp.num && exp.num.startsWith("FB");
+
+  // Build a clean title: strip redundant "Option X — " prefix from hyp.title
+  let cardTitle = "";
+  if (hyp && hyp.title) {
+    // Strip leading "Option X — " or "Option X: " that duplicates the ID
+    cardTitle = stripMd(hyp.title).replace(/^Option\s+[A-Z]\s*[—–:-]\s*/i, "").trim();
+  }
+  // Fallback: use believeShort
+  const subtitle = hyp ? stripMd(hyp.believeShort || "") : "";
+
+  // Prefix label: "Option A" for regular, "Frame-Breaker N" for FB
+  const prefixLabel = isFB
+    ? `Frame-Breaker ${exp.num.replace("FB", "")}`
+    : `Option ${exp.num}`;
+
+  const card = document.createElement("div");
+  card.className = "exp-card"; // closed by default
+
+  const header = document.createElement("div");
+  header.className = "exp-header";
+  header.innerHTML = `
+    <div class="exp-header-inner">
+      <div class="exp-title">${escHtml(prefixLabel)}${cardTitle ? ` — ${escHtml(cardTitle)}` : ""}</div>
+      ${subtitle ? `<div class="exp-subtitle">${escHtml(subtitle)}</div>` : ""}
+    </div>
+    <span class="exp-arrow">▾</span>
+  `;
+  header.addEventListener("click", () => card.classList.toggle("open"));
+  card.appendChild(header);
+
+  const body = document.createElement("div");
+  body.className = "exp-body";
+
+  const fields = parseExpFields(exp.raw);
+  let recommendedType = "";
+  let whyType = "";
+  let specifically = "";
+  let withSeg = "";
+  let successLike = "";
+  let failureLike = "";
+  let timeToRun = "";
+  let costIfWrong = "";
+  let altContent = "";
+  let onlyBuildIf = "";
+
+  for (const f of fields) {
+    if (!f.label) continue;
+    const lu = f.label.toUpperCase().replace(/\s+/g,"_");
+    if (lu === "RECOMMENDED_TYPE") recommendedType = f.value;
+    else if (lu === "WHY_THIS_TYPE") whyType = f.value;
+    else if (lu === "SPECIFICALLY") specifically = f.value;
+    else if (lu === "WITH") withSeg = f.value;
+    else if (lu === "SUCCESS_LOOKS_LIKE") successLike = f.value;
+    else if (lu === "FAILURE_LOOKS_LIKE") failureLike = f.value;
+    else if (lu === "TIME_TO_RUN") timeToRun = f.value;
+    else if (lu === "COST_IF_WRONG") costIfWrong = f.value;
+    else if (lu === "ALTERNATIVES") altContent = f.value;
+    else if (lu === "ONLY_BUILD_IF") onlyBuildIf = f.value;
+  }
+
+  // Helper: strip leading ** from a value before passing to marked.parse
+  function mdVal(s) { return marked.parse(s.replace(/^\*{1,2}\s*/, "")); }
+
+  function addRow(labelText, value, labelClass, valueClass) {
+    if (!value || !String(value).trim()) return;
+    const row = document.createElement("div");
+    row.className = "exp-field-row";
+    const lbl = `<div class="exp-field-label${labelClass ? ' ' + labelClass : ''}">${escHtml(labelText)}</div>`;
+    const val = `<div class="exp-field-value${valueClass ? ' ' + valueClass : ''}">${mdVal(value)}</div>`;
+    row.innerHTML = lbl + val;
+    body.appendChild(row);
+  }
+
+  // Recommended type — flat banner
+  if (recommendedType) {
+    const banner = document.createElement("div");
+    banner.className = "exp-type-banner";
+    banner.innerHTML = `<div class="exp-type-label">Recommended type</div><div class="exp-type-value">${escHtml(stripMd(recommendedType))}</div>`;
+    body.appendChild(banner);
+  }
+
+  addRow("Why this type", whyType);
+  addRow("Specifically", specifically);
+  addRow("Test with", withSeg);
+  addRow("Success looks like", successLike, "success-label");
+  addRow("Failure looks like", failureLike, "failure-label");
+
+  // Time + cost on one inline line
+  if (timeToRun || costIfWrong) {
+    const meta = document.createElement("div");
+    meta.className = "exp-meta-inline";
+    const parts = [];
+    if (timeToRun)   parts.push(`<strong>Time:</strong> ${escHtml(stripMd(timeToRun))}`);
+    if (costIfWrong) parts.push(`<strong>Cost if wrong:</strong> ${escHtml(stripMd(costIfWrong))}`);
+    meta.innerHTML = parts.join(`<span class="exp-meta-sep">·</span>`);
+    body.appendChild(meta);
+  }
+
+  // Alternatives — inline chevron toggle, no box
+  if (altContent) {
+    const toggle = document.createElement("div");
+    toggle.className = "exp-alt-toggle";
+    toggle.innerHTML = `<span class="exp-alt-chevron">▶</span> Alternatives`;
+    const altBody = document.createElement("div");
+    altBody.className = "exp-alt-body";
+    altBody.innerHTML = mdVal(altContent);
+    toggle.addEventListener("click", () => {
+      const open = altBody.classList.toggle("open");
+      toggle.querySelector(".exp-alt-chevron").style.transform = open ? "rotate(90deg)" : "";
+    });
+    body.appendChild(toggle);
+    body.appendChild(altBody);
+  }
+
+  // Only build if
+  addRow("Only build if", onlyBuildIf, "build-label", "build-value");
+
+  // Fallback if no structured fields found
+  if (!recommendedType && !specifically && !successLike) {
+    body.innerHTML = marked.parse(exp.raw.replace(/^EXPERIMENT FOR HYPOTHESIS.*$/im, "").trim());
+  }
+
+  card.appendChild(body);
+  return card;
+}
+
+// ═══════════════════════════════════════════
+// STEP RENDERERS
+// ═══════════════════════════════════════════
+
+function renderStep1() {
+  const el = document.getElementById("step-1");
+  el.innerHTML = "";
+
+  const signals = sectionByTitle("Signals Found");
+  const bias    = sectionByTitle("Bias Flags");
+
+  if (signals) el.appendChild(makeSection("Signals Found", signals.content, true));
+  if (bias)    el.appendChild(makeSection("Bias Flags", bias.content, false));
+
+  if (!signals && !bias) {
+    const fallback = sectionByTitle("Output") || parsedSections[0];
+    if (fallback) el.appendChild(makeSection("Output", fallback.content, true));
+  }
+
+  el.appendChild(makeAdvanceBtn("What does this mean?", () => renderStep2()));
+  activateStep(1);
+}
+
+function renderStep2() {
+  const el = document.getElementById("step-2");
+  el.innerHTML = "";
+
+  const rec = sectionByTitle("Recommendation");
+  if (rec) {
+    if (!/[.!?\])]$/.test(rec.content.trimEnd())) {
+      console.warn("[Parser] RECOMMENDATION may be truncated:", rec.content.slice(-100));
+    }
+    const parsed = parseRecommendationOptions(rec.content);
+    if (parsed && parsed.options.length > 0) {
+      const frag = buildTierBlocks(parsed);
+      el.appendChild(frag);
+    } else {
+      el.appendChild(makeSection("Recommendation", rec.content, true));
+    }
+  } else {
+    const p = document.createElement("p");
+    p.style.cssText = "color:var(--text-muted);font-size:13px;padding:20px 0;";
+    p.textContent = "No recommendation section found in output.";
+    el.appendChild(p);
+  }
+
+  el.appendChild(makeAdvanceBtn("What could break this?", () => renderStep3()));
+  activateStep(2);
+}
+
+function renderStep3() {
+  const el = document.getElementById("step-3");
+  el.innerHTML = "";
+
+  const sm = sectionByTitle("Steel Man");
+  if (sm) {
+    // Safety net: strip leaked recommendation content from the top of Steel Man.
+    // Patterns that belong in Recommendation but sometimes bleed through:
+    //   - "Lean toward Option ..."
+    //   - "FAST VALIDATION FIRST ..."
+    //   - "**ELEVATED FROM STEEL MAN**" / "ALTERNATIVE RECOMMENDATION"
+    //   - Lone "**" lines (formatting debris)
+    let smContent = sm.content;
+    const leakPatterns = [
+      /^\s*\*{0,2}Lean toward\b/i,
+      /^\s*Lean toward Option\b/i,
+      /^\s*FAST VALIDATION\b/i,
+      /^\s*\*{0,2}ELEVATED FROM\b/i,
+      /^\s*ALTERNATIVE RECOMMENDATION\b/i,
+      /^\s*\*\*\s*$/m,
+    ];
+    const hasLeak = leakPatterns.some(p => p.test(smContent));
+    if (hasLeak) {
+      const failsIdx = smContent.search(/This recommendation fails/i);
+      if (failsIdx > 0) {
+        console.warn("[Parser] Steel Man has leaked recommendation content — trimming to first failure condition");
+        smContent = smContent.slice(failsIdx);
+      }
+    }
+    const cleaned = smContent.replace(/(?:ALTERNATIVE RECOMMENDATION|ELEVATED FROM)\b.*?(?=\n\n##|\n\nThis recommendation fails|$)/gis, "").trim();
+    el.appendChild(makeSection("Steel Man — Failure Conditions", cleaned, true));
+  } else {
+    const p = document.createElement("p");
+    p.style.cssText = "color:var(--text-muted);font-size:13px;padding:20px 0;";
+    p.textContent = "No steel man section found in output.";
+    el.appendChild(p);
+  }
+
+  el.appendChild(makeAdvanceBtn("What do we test?", () => renderStep4()));
+  activateStep(3);
+}
+
+async function renderStep4() {
+  const el = document.getElementById("step-4");
+  el.innerHTML = "";
+  activateStep(4);
+
+  if (parsedHypotheses.length === 0) {
+    // No hypotheses from Stage 1 — call Stage 2 API to generate them
+    const loadingMsg = document.createElement("div");
+    loadingMsg.style.cssText = "color:var(--text-muted);font-size:13px;padding:20px 0;display:flex;align-items:center;gap:10px;";
+    loadingMsg.innerHTML = `<span class="spinner" style="border-color:rgba(255,255,255,0.1);border-top-color:var(--accent);"></span> Generating hypotheses…`;
+    el.appendChild(loadingMsg);
+
+    const apiKey = apiKeyInput.value.trim();
+    const constraints = document.getElementById("ctx-constraints").value.trim();
+    try {
+      const res = await fetch("/api/experiments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify({ stage1_output: stage1Output, selected_hypotheses: [], constraints }),
+      });
+      const data = await res.json();
+      if (!data.success || data.error) throw new Error(data.error || "Failed");
+      parsedHypotheses = parseHypotheses(data.hypotheses || "");
+    } catch (err) {
+      el.innerHTML = "";
+      showError("Failed to generate hypotheses: " + err.message);
+      return;
+    }
+    el.innerHTML = "";
+  }
+
+  const regular  = parsedHypotheses.filter(h => !h.isFrameBreaker);
+  const breakers = parsedHypotheses.filter(h => h.isFrameBreaker);
+
+  if (regular.length > 0) {
+    const hdr = document.createElement("div");
+    hdr.className = "hyp-group-header";
+    hdr.textContent = "Testing your options";
+    el.appendChild(hdr);
+    regular.forEach(h => { const c = buildHypCard(h); if (c) el.appendChild(c); });
+  }
+
+  if (breakers.length > 0) {
+    const group = document.createElement("div");
+    group.className = "fb-group";
+    group.innerHTML = `
+      <div class="fb-group-header">
+        Frame-breakers — challenges the entire diagnosis
+        <span class="fb-group-arrow">▾</span>
+      </div>
+      <div class="fb-group-body"></div>
+    `;
+    const fbBody = group.querySelector(".fb-group-body");
+    breakers.forEach(h => { const c = buildHypCard(h); if (c) fbBody.appendChild(c); });
+    group.querySelector(".fb-group-header").addEventListener("click", () => group.classList.toggle("open"));
+    el.appendChild(group);
+  }
+
+  // Design button row — hidden until a checkbox is checked
+  const designRow = document.createElement("div");
+  designRow.className = "design-btn-row";
+  designRow.id = "design-btn-row";
+
+  const selectHighBtn = document.createElement("button");
+  selectHighBtn.className = "btn btn-secondary";
+  selectHighBtn.textContent = "Select HIGH risk";
+  selectHighBtn.addEventListener("click", () => {
+    document.querySelectorAll(".hyp-card").forEach(card => {
+      const isHigh = card.dataset.risk === "HIGH";
+      const cb = card.querySelector(".hyp-checkbox");
+      cb.checked = isHigh;
+      card.classList.toggle("selected", isHigh);
+    });
+    updateDesignBtnVisibility();
+  });
+
+  const designBtn = document.createElement("button");
+  designBtn.className = "btn btn-primary";
+  designBtn.style.flex = "1";
+  designBtn.id = "design-btn";
+  designBtn.textContent = "Design experiments for selected";
+  designBtn.addEventListener("click", runExperiments);
+
+  designRow.appendChild(selectHighBtn);
+  designRow.appendChild(designBtn);
+  el.appendChild(designRow);
+}
+
+function renderStep5(hypotheses, experiments) {
+  const el = document.getElementById("step-5");
+  el.innerHTML = "";
+
+  // Update parsedHypotheses if we got fresh ones from Stage 2
+  if (hypotheses && parsedHypotheses.length === 0) {
+    parsedHypotheses = parseHypotheses(hypotheses);
+  }
+
+  const expBlocks = parseExperiments(experiments);
+  if (expBlocks.length === 0) {
+    el.appendChild(makeSection("Experiments", experiments, true));
+  } else {
+    // Sort to match hypothesis order regardless of model output order
+    expBlocks.sort((a, b) => {
+      const ai = parsedHypotheses.findIndex(h => h.id === a.num);
+      const bi = parsedHypotheses.findIndex(h => h.id === b.num);
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    });
+    expBlocks.forEach(exp => el.appendChild(buildExpCard(exp)));
+  }
+
+  activateStep(5);
+}
+
+// ═══════════════════════════════════════════
+// API CALLS
+// ═══════════════════════════════════════════
+
+document.getElementById("analyze-btn").addEventListener("click", async () => {
+  const signals = document.getElementById("signals").value.trim();
+  if (!signals)  { showError("Please paste some signals first."); return; }
+  const apiKey = apiKeyInput.value.trim();
+  if (!apiKey)   { showError("Please enter your Anthropic API key."); return; }
+
+  // Reset state
+  stage1Output = "";
+  parsedSections = [];
+  parsedHypotheses = [];
+  currentStep = 0;
+  maxRenderedStep = 0;
+  for (let i = 1; i <= 5; i++) { document.getElementById(`step-${i}`).innerHTML = ""; document.getElementById(`step-${i}`).classList.remove("active"); }
+  document.getElementById("placeholder").style.display = "";
+  updateStepsBar(0, 0);
+
+  const btn = document.getElementById("analyze-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analyzing…';
+  clearError();
+
+  const context = {
+    building: document.getElementById("ctx-building").value.trim(),
+    metric:   document.getElementById("ctx-metric").value.trim(),
+    constraints: document.getElementById("ctx-constraints").value.trim(),
+  };
+
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ signals, context }),
+    });
+    const data = await res.json();
+    if (!data.success || data.error) { showError(data.error || "Analysis failed."); return; }
+
+    stage1Output = data.output;
+    parsedSections = parseStage1(data.output);
+
+    // Pre-parse hypotheses if present in Stage 1
+    const hypSection = sectionByTitle("Hypotheses");
+    if (hypSection) parsedHypotheses = parseHypotheses(hypSection.content);
+
+    renderStep1();
+
+  } catch (err) {
+    showError("Network error: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Analyze signals";
+  }
+});
+
+async function runExperiments() {
+  const checked = [...document.querySelectorAll(".hyp-card .hyp-checkbox:checked")];
+  if (checked.length === 0) { showError("Select at least one hypothesis."); return; }
+  if (checked.length > 3)   { showError("Select 3 or fewer hypotheses for best results."); return; }
+
+  const selected = checked.map(cb => cb.dataset.num);
+  const btn = document.getElementById("design-btn");
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Designing…'; }
+  clearError();
+
+  const apiKey = apiKeyInput.value.trim();
+  const constraints = document.getElementById("ctx-constraints").value.trim();
+
+  try {
+    const res = await fetch("/api/experiments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ stage1_output: stage1Output, selected_hypotheses: selected, constraints }),
+    });
+    const data = await res.json();
+    if (!data.success || data.error) { showError(data.error || "Experiment design failed."); if (btn) { btn.disabled = false; btn.textContent = "Design experiments for selected"; } return; }
+    renderStep5(data.hypotheses, data.experiments);
+  } catch (err) {
+    showError("Network error: " + err.message);
+    if (btn) { btn.disabled = false; btn.textContent = "Design experiments for selected"; }
+  }
+}
+</script>
+</body>
+</html>
