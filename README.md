@@ -37,6 +37,8 @@ The system doesn't answer the question you asked. It answers the question you sh
 
 ---
 
+![PM Discovery OS in action](demo.gif)
+
 ## Proof It Works
 
 Six real companies. Raw founding inputs or pre-pivot signals. No post-mortem language. No hints about what went wrong.
